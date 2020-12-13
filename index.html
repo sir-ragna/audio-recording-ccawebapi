@@ -33,9 +33,35 @@
             return false;
         }
 
+        function playCall(callid) {
+            fetch(ccaurl + `/Calls/${callid}/Recordings/Download`, 
+                {headers: {'Authorization': 'Basic ' + localStorage.token}}).then((resp) => {
+                    const callrow = document.getElementById("callid_" + callid)
+                    if (resp.ok) {
+                        console.log(resp);
+                        resp.blob().then((blob) => {
+                            const audio = document.getElementById("audioplayer");
+                            let source = document.createElement("source")
+                            source.src = URL.createObjectURL(blob);
+                            source.type="audio/mpeg";
+                            audio.innerHTML = "";
+                            audio.appendChild(source);
+                            audio.play();
+                            callrow.className += " table-success";
+                        })
+                    } else {
+                        alert("Recording for '" + callid + "' cannot be downloaded");
+                        callrow.className += " table-warning";
+                    }
+                }).catch(err => {
+                    console.error(err)
+                });
+        }
+
         function downloadCall(callid) {
             fetch(ccaurl + `/Calls/${callid}/Recordings/Download`, 
                 {headers: {'Authorization': 'Basic ' + localStorage.token}}).then((resp) => {
+                    const callrow = document.getElementById("callid_" + callid)
                     if (resp.ok) {
                         console.log(resp);
                         resp.blob().then((blob) => {
@@ -45,10 +71,10 @@
                             a.href = URL.createObjectURL(blob);
                             document.getElementById("downloads").appendChild(a);
                             a.click();
+                            callrow.className += " table-success";
                         })
                     } else {
                         alert("Recording for '" + callid + "' cannot be downloaded");
-                        const callrow = document.getElementById("callid_" + callid)
                         callrow.className += " table-warning";
                     }
                 }).catch(err => {
@@ -62,6 +88,9 @@
                 <td>${callDetails.CallId}</td>
                 <td>${callDetails.TimeDetails.StartTime}</td>
                 <td>${callDetails.TimeDetails.TotalTime}</td>
+                <td>
+                    <button class="btn btn-outline-dark" onclick="playCall(${callDetails.CallId})">play</button>
+                </td>
                 <td>
                     <button class="btn btn-outline-dark" onclick="downloadCall(${callDetails.CallId})">download</button>
                 </td>
@@ -110,13 +139,17 @@
             </div>
         </div>
         <div class="row">
+            <audio id="audioplayer" style="width:100%;" controls></audio>
+        </div>
+        <div class="row">
             <table class="table table-striped">
                 <thead>
                     <tr>
                         <th scope="col">call id</th>
                         <th scope="col">starttime</th>
                         <th scope="col">duration</th>
-                        <th scope="col">download button</th>
+                        <th scope="col">play</th>
+                        <th scope="col">download</th>
                     </tr>
                 </thead>
                 <tbody id=feed>
