@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Recordings</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+</head>
+<body>
+    <script>
+        let ccaurl = localStorage.ccaurl;
+        let cursor = 0;
+        function signin() {
+            ccaurl = document.getElementById("ccaurl").value;
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            fetch(ccaurl + "/session", {method: 'post', headers: {"Content-Type": "text/json"},
+                body: JSON.stringify({
+                    username: username,
+                    password: password,
+                    module: "RecordingManagementTool",        
+                })
+            }).then(function success(response) {
+                if (response.ok) {
+                    response.json().then((json) => {
+                        localStorage.token = json.Response.Token;
+                    });
+                }
+            }, function failure(response) {
+                console.error("Failed Authentication")
+                console.error(response)
+            })
+            return false;
+        }
+
+        function downloadCall(callid) {
+            fetch(ccaurl + `/Calls/${callid}/Recordings/Download`, 
+                {headers: {'Authorization': 'Basic ' + localStorage.token}}).then((resp) => {
+                    if (resp.ok) {
+                        console.log(resp);
+                        resp.blob().then((blob) => {
+                            let a = document.createElement('a');
+                            a.download = callid + ".wav";
+                            a.rel = "noopener";
+                            a.href = URL.createObjectURL(blob);
+                            document.getElementById("downloads").appendChild(a);
+                            a.click();
+                        })
+                    } else {
+                        alert("Recording for '" + callid + "' cannot be downloaded");
+                        const callrow = document.getElementById("callid_" + callid)
+                        callrow.className += " table-warning";
+                    }
+                }).catch(err => {
+                    console.error(err)
+                });
+        }
+
+        function addCall(callDetails) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${callDetails.CallId}</td>
+                <td>${callDetails.TimeDetails.StartTime}</td>
+                <td>${callDetails.TimeDetails.TotalTime}</td>
+                <td>
+                    <button class="btn btn-outline-dark" onclick="downloadCall(${callDetails.CallId})">download</button>
+                </td>
+            `;
+            //tr.className = "row my-1";
+            tr.id = "callid_" + callDetails.CallId;
+            document.getElementById("feed").appendChild(tr);
+        }
+
+        function moreAudioRecordings() {
+            const requestBody = new URLSearchParams({
+                FindCallNestedCondition: JSON.stringify({
+                    Operator:"AND",
+                    Conditions:[{Relation:0,Param:23,Value:"?*"}],
+                    NestedConditions:[]
+                }),
+                FirstCallId: cursor,
+                MaxResults: 20,
+                //"{\"Operator\":\"AND\",\"Conditions\":[{\"Relation\":0,\"Param\":23,\"Value\":\"%3F*\"}],\"NestedConditions\":[]}"
+            })
+            fetch(ccaurl + '/Calls/?' + requestBody, {headers: {'Authorization': 'Basic ' + localStorage.token}}).then((resp) => {
+                if (resp.ok) {
+                    resp.json().then(json => {
+                        json.Response.forEach(callDetails => {
+                            addCall(callDetails)
+                            cursor = callDetails.CallId - 1;
+                        });
+                    });
+                } else {
+                    console.error("Failed to get more calls");
+                    console.error(resp);
+                }
+            });
+        }        
+    </script>
+    <div class="container-fluid">
+        <div class="row my-1 justify-content-around">
+            <div class="col-2">MENU - DOWNLOAD</div>
+            <div class="col-auto">
+                <div class="form-inline">
+                    <label for="ccaurl" class="p-1">ccaurl</label><input id="ccaurl" name="ccaurl" placeholder="http://link/ccawebapi" class="form-control" type="text">
+                    <label for="username" class="p-1">username</label><input id="username" name="username" placeholder="username" class="form-control" type="text" autofocus>
+                    <label for="password" class="p-1">password</label><input id="password" name="password" placeholder="password" class="form-control" type="password">
+                    <button class="btn btn-outline-primary m-1" onclick="signin()">Sign-in</button>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th scope="col">call id</th>
+                        <th scope="col">starttime</th>
+                        <th scope="col">duration</th>
+                        <th scope="col">download button</th>
+                    </tr>
+                </thead>
+                <tbody id=feed>
+
+                </tbody>
+            </table>
+        </div>
+        <div class="row">
+            <div class="col my-2"><button class="btn btn-outline-dark" onclick="moreAudioRecordings()">more</button></div>
+        </div>
+    </div>
+    <div id="downloads" style="display: none;"></div>
+</body>
+</html>
