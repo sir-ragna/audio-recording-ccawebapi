@@ -8,20 +8,23 @@
 </head>
 <body>
     <script>
-        let ccaurl = localStorage.ccaurl;
+    (async function() {
+        const config = await (await fetch("config.json")).json()
+        const ccaurl = config.ccaurl;
+        const module = config.module;
         let cursor = 0;
-        function signin() {
-            ccaurl = document.getElementById("ccaurl").value;
+        window.signin = function signin() {
             const username = document.getElementById("username").value;
             const password = document.getElementById("password").value;
-            fetch(ccaurl + "/session", {method: 'post', headers: {"Content-Type": "text/json"},
+            fetch(ccaurl + "/session", 
+                {method: 'post', headers: {"Content-Type": "text/json"},
                 body: JSON.stringify({
                     username: username,
                     password: password,
-                    module: "RecordingManagementTool",        
+                    module: module,
                 })
             }).then(function success(response) {
-                if (response.ok) {
+                if (response.status === 200) {
                     response.json().then((json) => {
                         localStorage.token = json.Response.Token;
                     });
@@ -33,7 +36,7 @@
             return false;
         }
 
-        function playCall(callid) {
+        window.playCall = function playCall(callid) {
             fetch(ccaurl + `/Calls/${callid}/Recordings/Download`, 
                 {headers: {'Authorization': 'Basic ' + localStorage.token}}).then((resp) => {
                     const callrow = document.getElementById("callid_" + callid)
@@ -58,7 +61,7 @@
                 });
         }
 
-        function downloadCall(callid) {
+        window.downloadCall = function downloadCall(callid) {
             fetch(ccaurl + `/Calls/${callid}/Recordings/Download`, 
                 {headers: {'Authorization': 'Basic ' + localStorage.token}}).then((resp) => {
                     const callrow = document.getElementById("callid_" + callid)
@@ -82,25 +85,24 @@
                 });
         }
 
-        function addCall(callDetails) {
+        window.addCall = function addCall(callDetails) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${callDetails.CallId}</td>
                 <td>${callDetails.TimeDetails.StartTime}</td>
                 <td>${callDetails.TimeDetails.TotalTime}</td>
                 <td>
-                    <button class="btn btn-outline-dark" onclick="playCall(${callDetails.CallId})">play</button>
+                    <button class="btn btn-outline-dark" onclick="window.playCall(${callDetails.CallId})">play</button>
                 </td>
                 <td>
-                    <button class="btn btn-outline-dark" onclick="downloadCall(${callDetails.CallId})">download</button>
+                    <button class="btn btn-outline-dark" onclick="window.downloadCall(${callDetails.CallId})">download</button>
                 </td>
             `;
-            //tr.className = "row my-1";
             tr.id = "callid_" + callDetails.CallId;
             document.getElementById("feed").appendChild(tr);
         }
 
-        function moreAudioRecordings() {
+        window.moreAudioRecordings = function moreAudioRecordings() {
             const requestBody = new URLSearchParams({
                 FindCallNestedCondition: JSON.stringify({
                     Operator:"AND",
@@ -109,7 +111,6 @@
                 }),
                 FirstCallId: cursor,
                 MaxResults: 20,
-                //"{\"Operator\":\"AND\",\"Conditions\":[{\"Relation\":0,\"Param\":23,\"Value\":\"%3F*\"}],\"NestedConditions\":[]}"
             })
             fetch(ccaurl + '/Calls/?' + requestBody, {headers: {'Authorization': 'Basic ' + localStorage.token}}).then((resp) => {
                 if (resp.ok) {
@@ -124,17 +125,17 @@
                     console.error(resp);
                 }
             });
-        }        
+        }
+    })()        
     </script>
     <div class="container-fluid">
         <div class="row my-1 justify-content-around">
             <div class="col-2">MENU - DOWNLOAD</div>
             <div class="col-auto">
                 <div class="form-inline">
-                    <label for="ccaurl" class="p-1">ccaurl</label><input id="ccaurl" name="ccaurl" placeholder="http://link/ccawebapi" class="form-control" type="text">
                     <label for="username" class="p-1">username</label><input id="username" name="username" placeholder="username" class="form-control" type="text" autofocus>
                     <label for="password" class="p-1">password</label><input id="password" name="password" placeholder="password" class="form-control" type="password">
-                    <button class="btn btn-outline-primary m-1" onclick="signin()">Sign-in</button>
+                    <button class="btn btn-outline-primary m-1" onclick="window.signin()">Sign-in</button>
                 </div>
             </div>
         </div>
@@ -158,7 +159,7 @@
             </table>
         </div>
         <div class="row">
-            <div class="col my-2"><button class="btn btn-outline-dark" onclick="moreAudioRecordings()">more</button></div>
+            <div class="col my-2"><button class="btn btn-outline-dark" onclick="window.moreAudioRecordings()">more</button></div>
         </div>
     </div>
     <div id="downloads" style="display: none;"></div>
